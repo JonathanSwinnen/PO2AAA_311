@@ -23,7 +23,6 @@
 //https://github.com/DFRobot/DFRobot_HX711
 #include <DFRobot_HX711.h>
 
- 
 
 /* -- CONSTANTS -- */
 
@@ -47,10 +46,17 @@ const int ORDER_TYPE_AMT = 3;
 //nauwkeurigheid (g)
 const int PRECISION_WEIGHT = 1;
 
+//motor snelheid
+const int MOTOR_SPEED_FAST = 100  // ???? moet getest worden
+const int MOTOR_SPEED_SLOW = 25   // ???? moet getest worden
+
 /* -- GLOBAL VARS -- */
 
 // is de bestelling al ontvangen?
 bool receivedOrder = false;
+
+// ontvangen bestelling data
+String receivedOrderData = "";
 
 // aantal gram per type korrel
 float order[ORDER_TYPE_AMT];
@@ -77,23 +83,51 @@ void setup() {
   Serial.println(weightSensor.readWeight());
 }
 
+// lus
 void loop() {
-
   if(!receivedOrder) {
     awaitReceiveOrder();
   }
-  
   else {
     loadOrder();
   }
-
 }
 
 
 // bluetooth module checkt of er een bestelling binnenkomt
+// formaat binnenkomende bestelling: "(<int>, <int>, <int>)"
 void awaitReceiveOrder() {
+
+  //de index van het onderdeel van de bestelling dat genoteerd wordt
+  int recvOrderType = 0;
+
+  //wordt er data gelezen?
+  bool receiving = false;
   
-  // TODO: bluetooth lezen implementeren 
+  while(bluetooth.available() > 0) {
+
+    // lees een binnenkomend karakter
+    nextChar = (char)bluetooth.read();
+
+    // '(' = beginkarakter, start lezen bestelling
+    if(!receiving && nextChar == '(') {
+      receiving = true;
+    }
+    // ',' = separator, stop dit getal te lezen, begin het volgende getal te lezen
+    else if(receiving && nextChar == ',') {
+      recvOrderType++ ;
+    }
+    // ')' = eindkarakter, stop lezen bestelling
+    else if(receiving && nextChar == ')') {
+      receiving = false;
+    }
+    // andere karakters gaan we van uit dat het de cijfers zijn
+    else if(receiving) {
+      nextDigit = atoi(nextChar); // volgend cijfer
+      // voeg cijfer toe aan getal (links naar rechts), bvb: we hebben al 92, volgend cijfer is 3 -> getal wordt: 92 * 10 + 3 = 923
+      order[recvOrderType] = order[recvOrderType] * 10 + nextDigit;  
+    }
+  }
   
 }
 
@@ -113,17 +147,17 @@ void loadOrder() {
 
     // dit onderdeel is afgehandeld, (
     if(order[orderType] - weight < -PRECISION_WEIGHT) {
-      // TODO: STOP MOTOR + PROGRAMMA BETER INSTELLEN, TE VEEL!!!
-
-      Serial.print("WAARSCHUWING!!! -- Te veel ingeladen, werk het programma bij!!! : ");
+      // WAARSCHUWING: PROGRAMMA BETER INSTELLEN, TE VEEL INGELADEN!!!
+      Serial.print("WAARSCHUWING!!! -- Te veel ingeladen, stel het programma beter in!!! : ");
       Serial.println(order[orderType]-weight);
     }
-    else if(order[orderType] - weight < WEIGHT_PRECISION) {
-      // TODO: STOP MOTOR, GENOEG VOOR PRECISIE
+    
+    if(order[orderType] - weight < WEIGHT_PRECISION) {
+      // STOP MOTOR, GENOEG VOOR PRECISIE
+      analogWrite(DC[orderType], 0)
 
       // zet weegschaal offset voor volgende deel
       weightSensor.setOffset(weightSensor.averageValue());
-
       orderType++;
       
       Serial.print("Deel ");
@@ -134,10 +168,11 @@ void loadOrder() {
       Serial.println(weightSensor.readWeight());
     }
     else if(order[orderType] - weight < WEIGHT_SLOWDOWN_PROXIMITY) {
-      // TODO: VERTRAAG MOTOR
+      // STOP MOTOR, GENOEG VOOR PRECISIE
+      analogWrite(DC[orderType], MOTOR_SPEED_SLOW)
     }
     else {
-      // TODO: DRAAI MOTOR
+      analogWrite(DC[orderType], MOTOR_SPEED_FAST)
     }
     
   }
