@@ -22,7 +22,7 @@
 
 //https://github.com/DFRobot/DFRobot_HX711
 #include <DFRobot_HX711.h>
-
+#include <SoftwareSerial.h>
 
 /* -- CONSTANTS -- */
 
@@ -44,11 +44,14 @@ const float HX711_CALIB = 1992; // default?
 const int ORDER_TYPE_AMT = 3;
 
 //nauwkeurigheid (g)
-const int PRECISION_WEIGHT = 1;
+const int WEIGHT_PRECISION = 1;
+
+//vanaf hoeveel g verschil tussen gemeten gewicht-besteld gewicht moet de motor trager draaien?
+const int WEIGHT_SLOWDOWN_MOTOR = 20;
 
 //motor snelheid
-const int MOTOR_SPEED_FAST = 100  // ???? moet getest worden
-const int MOTOR_SPEED_SLOW = 25   // ???? moet getest worden
+const int MOTOR_SPEED_FAST = 100;  // ???? moet getest worden
+const int MOTOR_SPEED_SLOW = 25;   // ???? moet getest worden
 
 /* -- GLOBAL VARS -- */
 
@@ -66,7 +69,7 @@ int orderType = 0;
 
 // gewichtssensor object
 DFRobot_HX711 weightSensor(SEN0160_DOUT, SEN0160_CLK);
-
+SoftwareSerial bluetooth(HC06_TX, HC06_RX);
 
 void setup() {
 
@@ -107,7 +110,7 @@ void awaitReceiveOrder() {
   while(bluetooth.available() > 0) {
 
     // lees een binnenkomend karakter
-    nextChar = (char)bluetooth.read();
+    char nextChar = (char)bluetooth.read();
 
     // '(' = beginkarakter, start lezen bestelling
     if(!receiving && nextChar == '(') {
@@ -123,7 +126,7 @@ void awaitReceiveOrder() {
     }
     // andere karakters gaan we van uit dat het de cijfers zijn
     else if(receiving) {
-      nextDigit = atoi(nextChar); // volgend cijfer
+      int nextDigit = atoi(nextChar); // volgend cijfer
       // voeg cijfer toe aan getal (links naar rechts), bvb: we hebben al 92, volgend cijfer is 3 -> getal wordt: 92 * 10 + 3 = 923
       order[recvOrderType] = order[recvOrderType] * 10 + nextDigit;  
     }
@@ -146,7 +149,7 @@ void loadOrder() {
     float weight = weightSensor.readWeight();
 
     // dit onderdeel is afgehandeld, (
-    if(order[orderType] - weight < -PRECISION_WEIGHT) {
+    if(order[orderType] - weight < -WEIGHT_PRECISION) {
       // WAARSCHUWING: PROGRAMMA BETER INSTELLEN, TE VEEL INGELADEN!!!
       Serial.print("WAARSCHUWING!!! -- Te veel ingeladen, stel het programma beter in!!! : ");
       Serial.println(order[orderType]-weight);
@@ -154,7 +157,7 @@ void loadOrder() {
     
     if(order[orderType] - weight < WEIGHT_PRECISION) {
       // STOP MOTOR, GENOEG VOOR PRECISIE
-      analogWrite(DC[orderType], 0)
+      analogWrite(DC[orderType], 0);
 
       // zet weegschaal offset voor volgende deel
       weightSensor.setOffset(weightSensor.averageValue());
@@ -167,12 +170,12 @@ void loadOrder() {
       Serial.print(", geleverd: ");
       Serial.println(weightSensor.readWeight());
     }
-    else if(order[orderType] - weight < WEIGHT_SLOWDOWN_PROXIMITY) {
+    else if(order[orderType] - weight < WEIGHT_SLOWDOWN_MOTOR) {
       // STOP MOTOR, GENOEG VOOR PRECISIE
-      analogWrite(DC[orderType], MOTOR_SPEED_SLOW)
+      analogWrite(DC[orderType], MOTOR_SPEED_SLOW);
     }
     else {
-      analogWrite(DC[orderType], MOTOR_SPEED_FAST)
+      analogWrite(DC[orderType], MOTOR_SPEED_FAST);
     }
     
   }
