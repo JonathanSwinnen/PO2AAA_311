@@ -24,27 +24,28 @@
 #include <DFRobot_HX711.h>
 #include <SoftwareSerial.h>
 
-/* -- CONSTANTS -- */
-
-// pins:
+/* ----- PINS ----- */
 const int
-
 SEN0160_DOUT = 2,
 SEN0160_CLK  = 3,
-
 HC06_TX = 8,
 HC06_RX = 9;
-
 const int DC[] = {5, 6, 10};
 
-//gewichtssensor calibratie schaal (experimenteel vastleggen?)
-const float HX711_CALIB = 1992; // default?
-
+/* ----- CONSTANTEN VAST BEPAALD DOOR OPDRACHT -----*/
 //aantal soorten korrels
 const int ORDER_TYPE_AMT = 3;
 
 //nauwkeurigheid (g)
 const int WEIGHT_PRECISION = 1;
+
+
+/* ----- CONFIGURATIE CONSTANTEN ----- */
+
+///TODO: experimenteel de juiste constanten bepalen & tweaken
+
+//gewichtssensor calibratie schaal (experimenteel vastleggen?)
+const float HX711_CALIB = 1992; // default?
 
 //vanaf hoeveel g verschil tussen gemeten gewicht-besteld gewicht moet de motor trager draaien?
 const int WEIGHT_SLOWDOWN_MOTOR = 20;
@@ -53,7 +54,8 @@ const int WEIGHT_SLOWDOWN_MOTOR = 20;
 const int MOTOR_SPEED_FAST = 100;  // ???? moet getest worden
 const int MOTOR_SPEED_SLOW = 25;   // ???? moet getest worden
 
-/* -- GLOBAL VARS -- */
+
+/* ----- GLOBAL VARS ----- */
 
 // is de bestelling al ontvangen?
 bool receivedOrder = false;
@@ -71,10 +73,15 @@ int orderType = 0;
 DFRobot_HX711 weightSensor(SEN0160_DOUT, SEN0160_CLK);
 SoftwareSerial bluetooth(HC06_TX, HC06_RX);
 
+
+/* ----- CODE -----*/
+
 void setup() {
 
   // start serial (voor debugging)
   Serial.begin(9600);
+  // start bluetooth module
+  bluetooth.begin(9600);
 
   //SEN0160 setup
   Serial.println("HX711 calibreren");
@@ -98,7 +105,7 @@ void loop() {
 
 
 // bluetooth module checkt of er een bestelling binnenkomt
-// formaat binnenkomende bestelling: "(<int>, <int>, <int>)"
+// formaat binnenkomende bestelling (string): "(<int>,<int>,<int>)"
 void awaitReceiveOrder() {
 
   //de index van het onderdeel van de bestelling dat genoteerd wordt
